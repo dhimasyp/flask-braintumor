@@ -1,25 +1,28 @@
 from flask import Flask, render_template, request, send_from_directory
 from tensorflow.keras.models import load_model
+from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 import numpy as np
 import os
 import cv2
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = './static/uploads/'
-model = load_model('first_model_run-0.h5')
-
-class_dict = {0:'MENINGIOMA', 1:'GLIOMA', 2:'PITUITARY'}
+model = load_model('first_run_model-0.h5')
 
 def predict_label(img_path):
-    query = cv2.imread(img_path)
-    output = query.copy()
-    query = cv2.resize(query, (150, 150))
-    q = []
-    q.append(query)
-    q = np.array(q, dtype='float') / 255.0
-    q_pred = model.predict(q)
-    predicted_bit = int(q_pred)
-    return class_dict[predicted_bit]
+    x = load_img(img_path, target_size=(150,150))
+    x = img_to_array(x)
+    x = np.expand_dims(x, axis=0)
+    array = model.predict(x)
+    result = array[0]
+    answer = np.argmax(result)
+    if answer == 0:
+        print("Label: MENINGIOMA")
+    elif answer == 1:
+	    print("Label: GLIOMA")
+    elif answer == 2:
+	    print("Label: PITUITARY")    
+    return answer
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -28,7 +31,13 @@ def index():
             image = request.files['image']
             img_path = os.path.join(app.config['UPLOAD_FOLDER'], image.filename)
             image.save(img_path)
-            prediction = predict_label(img_path)
+            result = predict_label(img_path)
+            if result == 0:
+                prediction = 'MENINGIOMA'
+            elif result == 1:
+                prediction = 'GLIOMA'			
+            elif result == 2:
+                prediction = 'PITUITARY'
             return render_template('index.html', uploaded_image=image.filename, prediction=prediction)
 
     return render_template('index.html')
